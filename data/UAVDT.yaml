@@ -1,0 +1,10 @@
+names:
+- car
+- truck
+- bus
+nc: 3
+patch: ../data/datasets/UAVDT/UAV-benchmark-M
+path: ../data/datasets/UAVDT/UAV-benchmark-M
+test: VisDrone2019-DET-test-dev/images
+train: VisDrone2019-DET-train/images
+val: M0101/images

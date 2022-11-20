@@ -1,0 +1,37 @@
+names:
+- red panda
+- whale
+- car
+- elephant
+- giant panda
+- zebra
+- rabbit
+- squirrel
+- bear
+- motorcycle
+- fox
+- watercraft
+- bus
+- lizard
+- domestic cat
+- turtle
+- snake
+- train
+- dog
+- bird
+- airplane
+- sheep
+- hamster
+- tiger
+- lion
+- cattle
+- horse
+- bicycle
+- monkey
+- antelope
+nc: 30
+patch: ../data/datasets/ImageVID_yolo_form
+path: ../data/datasets/ImageVID_yolo_form
+test: VisDrone2019-DET-test-dev/images
+train: VisDrone2019-DET-train/images
+val: ILSVRC2015_val_00000001/images
