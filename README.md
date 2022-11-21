@@ -31,7 +31,7 @@ https://drive.google.com/file/d/1w_K7uV4C_VxM5NryFpJFQC8OtSZbPIde/view?usp=share
 
 ---
 ## Hardware test
-###We provide tested results on our hardwares : 'Time measured by hardwares.xlsx'
+### We provide tested results on our hardwares : 'Time measured by hardwares.xlsx'
 
 ![image](https://user-images.githubusercontent.com/118588373/203080026-e5678e15-a4d9-41d3-835b-bc4d4f939073.png)
 ![image](https://user-images.githubusercontent.com/118588373/203079005-386193e2-cb7d-4c0b-87a9-26b193aaa573.png)
@@ -43,5 +43,5 @@ So please check your environment with the code: 'Test_your_hardware.ipynb'
 
 We strongly recommend using Jetson Nvidia TX2 and Jetson Nano or with hardware of a similar specification.
 
-However, if there is none, please experiment with existing hardware and refer to the result of acceleration indirectly with *average resolution* in 'excel_results/files' and 'Time measured by hardwares.xlsx'.
+However, if there is none, please experiment with existing hardware and refer to the result of acceleration indirectly with *average resolution* in 'excel_results/files'.
 
