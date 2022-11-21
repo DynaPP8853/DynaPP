@@ -1,6 +1,6 @@
 # DynaPP
 
-## Please download wight files below
+## Please download weight files below
 
 #### (Put the files in 'weights' folder)
 
