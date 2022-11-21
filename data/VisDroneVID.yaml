@@ -10,7 +10,6 @@ names:
 - bus
 - motor
 nc: 10
-patch: ../data/datasets/VisDroneVID/sequences
 path: ../data/datasets/VisDroneVID/sequences
 test: VisDrone2019-DET-test-dev/images
 train: VisDrone2019-DET-train/images

@@ -30,7 +30,6 @@ names:
 - monkey
 - antelope
 nc: 30
-patch: ../data/datasets/ImageVID_yolo_form
 path: ../data/datasets/ImageVID_yolo_form
 test: VisDrone2019-DET-test-dev/images
 train: VisDrone2019-DET-train/images

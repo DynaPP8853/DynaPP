@@ -12,23 +12,103 @@ from PIL import Image
 import cv2
 import sys
 
-def check_intersect(boxA, boxB):
-    ''' 두개의 box가 서로 교집합을 가지는지 check한다.
-    args :
-        boxA : boxA 좌표 [xmin,ymin,xmax,ymax 순]
-        boxB : boxB 좌표
-    '''
-    xA = max(float(boxA[0]), float(boxB[0]))
-    yA = max(float(boxA[1]), float(boxB[1]))
-    xB = min(float(boxA[2]), float(boxB[2]))
-    yB = min(float(boxA[3]), float(boxB[3]))
-    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
-    if interArea > 0:
-        return True
-    else:
-        return False
+def patch_construction(img, boxes, prev_out=None, background=0.3):
+    '''     
+    <Description>
+    This method is a patch construction.
+    
+    <input> 
+    img : image
+    boxes : bounding boxes
+    prev_out : previous bounding boxes
+    background : d% background
+    
+    <output>
+    new_box : patches
+    groups : groups of each contains bounding bax in the patches
+    '''    
+    # Sort by width ratio
+    for_sort_labels = boxes.clone()
+    min_len, max_len = max(img.size(3), img.size(2))//33, max(img.size(3), img.size(2))//16
+    for_sort_labels = expand_box(for_sort_labels, expand = background, thres_len= (min_len, max_len), x_size = img.size(3), y_size = img.size(2), prev_out=prev_out)
+    for_sort_labels[:,[0,2]].clamp_(min=0, max=img.size(3))
+    for_sort_labels[:,[1,3]].clamp_(min=0, max=img.size(2))
+    inter_matrix = ((box_inter(for_sort_labels, for_sort_labels))*1).cpu().numpy()
+    for_sort_labels = for_sort_labels.cpu().numpy()
+    groups = [(i+np.nonzero(inter_matrix[i,i:])[0]).tolist() for i in range(len(inter_matrix))]
+    
+    finish =0
+    while finish != len(groups)-1:
+        group = groups[finish]
+        to_add =[]
+        for idx, check_group in enumerate(groups[finish+1:]):
+            for num in group:
+                if num in check_group:
+                    to_add.append(finish+1+idx)
+        to_add = list(set(to_add))
+        if len(to_add) ==0:
+            finish+=1
+        else:
+            for i in sorted(to_add, reverse=True):
+                groups[finish].extend(copy.deepcopy(groups[i]))
+                del groups[i]
+            groups[finish] = list(set(groups[finish]))
+
+
+    box_to_crop = [np.concatenate([np.min(for_sort_labels[group,0:2],axis=0, keepdims=True), np.max(for_sort_labels[group,2:4],axis=0, keepdims=True)], axis=1) for group in groups]
+    new_box = np.concatenate(box_to_crop, axis=0)
+    while True:
+        temp = torch.from_numpy(new_box)
+        inter_matrix = ((box_inter(temp, temp))*1).numpy()
+        if np.sum(inter_matrix) == len(inter_matrix):
+            break
+        else:
+            groups = [(i+np.nonzero(inter_matrix[i,i:])[0]).tolist() for i in range(len(inter_matrix))]
+            finish =0
+            while finish != len(groups)-1:
+                group = groups[finish]
+                to_add =[]
+                for idx, check_group in enumerate(groups[finish+1:]):
+                    for num in group:
+                        if num in check_group:
+                            to_add.append(finish+1+idx)
+                to_add = list(set(to_add))
+                if len(to_add) ==0:
+                    finish+=1
+                else:
+                    for i in sorted(to_add, reverse=True):
+                        groups[finish].extend(copy.deepcopy(groups[i]))
+                        del groups[i]
+                    groups[finish] = list(set(groups[finish]))
+            box_to_crop = [np.concatenate([np.min(new_box[group,0:2],axis=0, keepdims=True), np.max(new_box[group,2:4],axis=0, keepdims=True)], axis=1) for group in groups]
+            new_box = np.concatenate(box_to_crop, axis=0)
+
+
+    # 묶을 그룹별로 정리
+    new_box[:, [1,3]] = np.clip(new_box[:, [1,3]], 0, img.size(2))
+    new_box[:, [0,2]] = np.clip(new_box[:, [0,2]], 0, img.size(3))
+    return new_box.astype(np.int32), groups
+
 
 def canvas(original_img, boxes, where_old_image=None,where_new_image=None, prev_out=None, background = 0.3):
+    '''     
+    <Description>
+    This method is forming Pack and Detect canvas. 
+    
+    <input> 
+    original_img : image
+    boxes : bounding boxes
+    where_old_image : patch locations in the image
+    where_new_image : patch locations in the canvas
+    prev_out : previous bounding boxes
+    background : d% background
+    
+    <output>
+    packed frame. 
+    patch locations in the image, 
+    patch locations in the canvas, 
+    groups of each contains bounding bax in the patches
+    '''    
     if where_old_image==None:
 
         where_old_image, groups_groups = patch_construction(original_img, boxes, prev_out=prev_out, background=background)
@@ -633,35 +713,17 @@ def canvas(original_img, boxes, where_old_image=None,where_new_image=None, prev_
             return original_img, torch.tensor([[0,0,full,full]]).cuda(), None, None
 
 
-def intersect_extend(extra, box_first_small,box_first_big, box_second_small, box_second_big):
-    
-    limitation_dic = {'first_min_lim': box_first_small, 'first_max_lim': (box_first_big+box_second_small)//2-box_first_big, \
-            'second_min_lim': box_second_small - (box_second_small+box_first_big)//2, 'second_max_lim': full-box_second_big}
-
-    limitation_dic = {k: v for k, v in sorted(limitation_dic.items(), key=lambda item: item[1], reverse=False)}
-
-    add_to_others = 0
-    for i, key in enumerate(limitation_dic):
-        value = limitation_dic[key]
-        extra[i] += add_to_others//(4-i)
-        add_to_others -= add_to_others//(4-i)
-        if value >= extra[i]:
-            value = extra[i]
-        else:
-            add_to_others += extra[i] - value
-        limitation_dic[key] = value
-
-    box_first_small -= limitation_dic['first_min_lim']
-    box_first_big += limitation_dic['first_max_lim']
-    box_second_small-= limitation_dic['second_min_lim']
-    box_second_big += limitation_dic['second_max_lim']
-    return box_first_small,box_first_big, box_second_small, box_second_big
-
 def check_intersect_possibility(boxes_other_oreientation):
-    '''box가 intersect인지 체크 (0: no intersect, 1 : intersect)
-    args :
-        boxes_other_oreientation : 다른방향의 박스포인트
-        '''
+    '''     
+    <Description>
+    Check whether boxex intersect
+    
+    <input> 
+    boxes_other_oreientation : boxes with other orientation
+    
+    <output>
+    box_possible : (0: no intersect, 1 : intersect)
+    '''    
     #안겹친다고 가정
     box_possible = [0]*(len(boxes_other_oreientation)//2)
     
@@ -684,6 +746,7 @@ def greedy_intersect_extend(extra, boxes, boxes_other_oreientation, full=960):
     return:
         확장을 진행하여 변화된 box의 포인트들을 반환
     '''
+
     
     box_intersect = check_intersect_possibility(boxes_other_oreientation) #겹칠여부반환
     box_dic = {}        # box point (boxes)
@@ -752,39 +815,6 @@ def greedy_intersect_extend(extra, boxes, boxes_other_oreientation, full=960):
 
     return boxes
 
-def clamp_to_zero(*args):
-    new = []
-    for i in args:
-        new.append(max(0,i))
-    return new
-
-def clamp_to_max(*args):
-    new = []
-    for i in args:
-        new.append(min(full,i))
-    return new
-
-def no_intersect_extend(extra, box_first_small,box_first_big, box_second_small, box_second_big):
-    
-    box_first_small -= extra[0]
-    box_first_big += extra[1]
-    box_second_small -= extra[2]
-    box_second_big += extra[3]
-    if box_first_small<0:
-        box_first_big -= box_first_small
-        box_first_small = 0
-    if box_first_big>full:
-        box_first_small += (full-box_first_big)
-        box_first_big = full
-    if box_second_small<0:
-        box_second_big -= box_second_small
-        box_second_small = 0
-    if box_second_big>full:
-        box_second_small += (full-box_second_big[2])
-        box_second_big = full
-    return box_first_small,box_first_big, box_second_small, box_second_big
-
-
 def make_extra(extra_whole, box_num=2):
     '''확장 값들을 반환한다
     args :
@@ -802,70 +832,6 @@ def make_extra(extra_whole, box_num=2):
     return extra
 
 
-def patch_construction(img, boxes, prev_out=None, background=0.3):
-    # Sort by width ratio
-    for_sort_labels = boxes.clone()
-    min_len, max_len = max(img.size(3), img.size(2))//33, max(img.size(3), img.size(2))//16
-    for_sort_labels = expand_box(for_sort_labels, expand = background, thres_len= (min_len, max_len), x_size = img.size(3), y_size = img.size(2), prev_out=prev_out)
-    for_sort_labels[:,[0,2]].clamp_(min=0, max=img.size(3))
-    for_sort_labels[:,[1,3]].clamp_(min=0, max=img.size(2))
-    inter_matrix = ((box_inter(for_sort_labels, for_sort_labels))*1).cpu().numpy()
-    for_sort_labels = for_sort_labels.cpu().numpy()
-    groups = [(i+np.nonzero(inter_matrix[i,i:])[0]).tolist() for i in range(len(inter_matrix))]
-    
-    finish =0
-    while finish != len(groups)-1:
-        group = groups[finish]
-        to_add =[]
-        for idx, check_group in enumerate(groups[finish+1:]):
-            for num in group:
-                if num in check_group:
-                    to_add.append(finish+1+idx)
-        to_add = list(set(to_add))
-        if len(to_add) ==0:
-            finish+=1
-        else:
-            for i in sorted(to_add, reverse=True):
-                groups[finish].extend(copy.deepcopy(groups[i]))
-                del groups[i]
-            groups[finish] = list(set(groups[finish]))
-
-
-    box_to_crop = [np.concatenate([np.min(for_sort_labels[group,0:2],axis=0, keepdims=True), np.max(for_sort_labels[group,2:4],axis=0, keepdims=True)], axis=1) for group in groups]
-    new_box = np.concatenate(box_to_crop, axis=0)
-    while True:
-        temp = torch.from_numpy(new_box)
-        inter_matrix = ((box_inter(temp, temp))*1).numpy()
-        if np.sum(inter_matrix) == len(inter_matrix):
-            break
-        else:
-            groups = [(i+np.nonzero(inter_matrix[i,i:])[0]).tolist() for i in range(len(inter_matrix))]
-            finish =0
-            while finish != len(groups)-1:
-                group = groups[finish]
-                to_add =[]
-                for idx, check_group in enumerate(groups[finish+1:]):
-                    for num in group:
-                        if num in check_group:
-                            to_add.append(finish+1+idx)
-                to_add = list(set(to_add))
-                if len(to_add) ==0:
-                    finish+=1
-                else:
-                    for i in sorted(to_add, reverse=True):
-                        groups[finish].extend(copy.deepcopy(groups[i]))
-                        del groups[i]
-                    groups[finish] = list(set(groups[finish]))
-            box_to_crop = [np.concatenate([np.min(new_box[group,0:2],axis=0, keepdims=True), np.max(new_box[group,2:4],axis=0, keepdims=True)], axis=1) for group in groups]
-            new_box = np.concatenate(box_to_crop, axis=0)
-
-
-    # 묶을 그룹별로 정리
-    new_box[:, [1,3]] = np.clip(new_box[:, [1,3]], 0, img.size(2))
-    new_box[:, [0,2]] = np.clip(new_box[:, [0,2]], 0, img.size(3))
-    return new_box.astype(np.int32), groups
-
-
 def expand_box(boxes, expand , thres_len, x_size, y_size, prev_out):
     length_x = (boxes[:,2:3] - boxes[:,0:1])*expand/2
     length_y =  (boxes[:,3:4] - boxes[:,1:2])*expand/2
@@ -873,64 +839,110 @@ def expand_box(boxes, expand , thres_len, x_size, y_size, prev_out):
     boxes[:,0:1],boxes[:,1:2],boxes[:,2:3],boxes[:,3:4] = boxes[:,0:1]-length_x,boxes[:,1:2]-length_y,boxes[:,2:3]+length_x,boxes[:,3:4]+length_y
     return boxes
 
+# +
+# def intersect_extend(extra, box_first_small,box_first_big, box_second_small, box_second_big):
+    
+#     limitation_dic = {'first_min_lim': box_first_small, 'first_max_lim': (box_first_big+box_second_small)//2-box_first_big, \
+#             'second_min_lim': box_second_small - (box_second_small+box_first_big)//2, 'second_max_lim': full-box_second_big}
 
-def check_intersect(boxA, boxB):
-    ''' 두개의 box가 서로 교집합을 가지는지 check한다.
-    args :
-        boxA : boxA 좌표 [xmin,ymin,xmax,ymax 순]
-        boxB : boxB 좌표
-    '''
-    xA = max(float(boxA[0].item()), float(boxB[0].item()))
-    yA = max(float(boxA[1].item()), float(boxB[1].item()))
-    xB = min(float(boxA[2].item()), float(boxB[2].item()))
-    yB = min(float(boxA[3].item()), float(boxB[3].item()))
-    interArea = max(0, xB - xA) * max(0, yB - yA)
-    if interArea > 0:
-        return True
-    else:
-        return False
+#     limitation_dic = {k: v for k, v in sorted(limitation_dic.items(), key=lambda item: item[1], reverse=False)}
 
+#     add_to_others = 0
+#     for i, key in enumerate(limitation_dic):
+#         value = limitation_dic[key]
+#         extra[i] += add_to_others//(4-i)
+#         add_to_others -= add_to_others//(4-i)
+#         if value >= extra[i]:
+#             value = extra[i]
+#         else:
+#             add_to_others += extra[i] - value
+#         limitation_dic[key] = value
 
-def make_newboxes(boxes):
-    box_num = len(boxes)
-    while True:
-        groups = {}
-        for i in range(0,box_num):
-            new = True
-            for key, value in groups.items():
-                if i in value:
-                    new = False
-                    save_key = key
-            if new:
-                save_key = i
-                groups[i] = [i]
+#     box_first_small -= limitation_dic['first_min_lim']
+#     box_first_big += limitation_dic['first_max_lim']
+#     box_second_small-= limitation_dic['second_min_lim']
+#     box_second_big += limitation_dic['second_max_lim']
+#     return box_first_small,box_first_big, box_second_small, box_second_big
+
+# +
+# def no_intersect_extend(extra, box_first_small,box_first_big, box_second_small, box_second_big):
+    
+#     box_first_small -= extra[0]
+#     box_first_big += extra[1]
+#     box_second_small -= extra[2]
+#     box_second_big += extra[3]
+#     if box_first_small<0:
+#         box_first_big -= box_first_small
+#         box_first_small = 0
+#     if box_first_big>full:
+#         box_first_small += (full-box_first_big)
+#         box_first_big = full
+#     if box_second_small<0:
+#         box_second_big -= box_second_small
+#         box_second_small = 0
+#     if box_second_big>full:
+#         box_second_small += (full-box_second_big[2])
+#         box_second_big = full
+#     return box_first_small,box_first_big, box_second_small, box_second_big
+
+# +
+# def make_newboxes(boxes):
+#     box_num = len(boxes)
+#     while True:
+#         groups = {}
+#         for i in range(0,box_num):
+#             new = True
+#             for key, value in groups.items():
+#                 if i in value:
+#                     new = False
+#                     save_key = key
+#             if new:
+#                 save_key = i
+#                 groups[i] = [i]
                 
-            for j in range(i+1, box_num):
-                if check_intersect(boxes[i], boxes[j]):
-                    groups[save_key].append(j)
+#             for j in range(i+1, box_num):
+#                 if check_intersect(boxes[i], boxes[j]):
+#                     groups[save_key].append(j)
 
-        # find enclosing bounding box around the union bounding boxes in each connected component
-        new_bboxes = []
-        for idxs in groups.values():
-            idxs = list(set(idxs))
-            xmin = torch.min(boxes[idxs,0])
-            xmax = torch.max(boxes[idxs,2])
-            ymin = torch.min(boxes[idxs,1])
-            ymax = torch.max(boxes[idxs,3])
-            enclosing_bbox = torch.LongTensor([xmin, ymin, xmax, ymax]).cuda()
-            new_bboxes.append(enclosing_bbox)
-        new_bboxes = torch.vstack(new_bboxes)
-        # check new bboxes intersect
-        intersect = False
-        box_num = len(new_bboxes)
-        for i in range(0, box_num):
-            for j in range(i+1, box_num):
-                if check_intersect(new_bboxes[i], new_bboxes[j]):
-                    intersect = True
+#         # find enclosing bounding box around the union bounding boxes in each connected component
+#         new_bboxes = []
+#         for idxs in groups.values():
+#             idxs = list(set(idxs))
+#             xmin = torch.min(boxes[idxs,0])
+#             xmax = torch.max(boxes[idxs,2])
+#             ymin = torch.min(boxes[idxs,1])
+#             ymax = torch.max(boxes[idxs,3])
+#             enclosing_bbox = torch.LongTensor([xmin, ymin, xmax, ymax]).cuda()
+#             new_bboxes.append(enclosing_bbox)
+#         new_bboxes = torch.vstack(new_bboxes)
+#         # check new bboxes intersect
+#         intersect = False
+#         box_num = len(new_bboxes)
+#         for i in range(0, box_num):
+#             for j in range(i+1, box_num):
+#                 if check_intersect(new_bboxes[i], new_bboxes[j]):
+#                     intersect = True
 
-        # if there are intersecting boxes in new_bboxes, build enclosing box again
-        if intersect:
-            boxes = new_bboxes
-        else:
-            break
-    return new_bboxes
+#         # if there are intersecting boxes in new_bboxes, build enclosing box again
+#         if intersect:
+#             boxes = new_bboxes
+#         else:
+#             break
+#     return new_bboxes
+
+# +
+# def check_intersect(boxA, boxB):
+#     ''' 두개의 box가 서로 교집합을 가지는지 check한다.
+#     args :
+#         boxA : boxA 좌표 [xmin,ymin,xmax,ymax 순]
+#         boxB : boxB 좌표
+#     '''
+#     xA = max(float(boxA[0]), float(boxB[0]))
+#     yA = max(float(boxA[1]), float(boxB[1]))
+#     xB = min(float(boxA[2]), float(boxB[2]))
+#     yB = min(float(boxA[3]), float(boxB[3]))
+#     interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+#     if interArea > 0:
+#         return True
+#     else:
+#         return False

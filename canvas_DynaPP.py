@@ -8,6 +8,26 @@ import copy
 import time
 
 def enclosing_canvas(img, boxes, where_old_image=None, where_new_image=None, prev_out=None, background = 0.3):
+    '''     
+    <Description>
+    This method is forming a enclosing canvas.  Enclosing canvas is a box within the image that encloses all patch locations.
+    
+    <input> 
+    img : image
+    boxes : bounding boxes
+    where_old_image : patch locations in the image
+    where_new_image : patch locations in the canvas
+    prev_out : previous bounding boxes
+    background : d% background
+    
+    <output>
+    packed frame. 
+    patch locations in the image, 
+    None, 
+    groups of each contains bounding bax in the patches
+    '''
+    
+    
     groups = [[x for x in range(len(boxes))]]
     if where_old_image==None:
         pass
@@ -16,19 +36,35 @@ def enclosing_canvas(img, boxes, where_old_image=None, where_new_image=None, pre
         return img[:,:,x:y, z:w], where_old_image, None, groups
     min_len, max_len = max(img.size(3), img.size(2))//33, max(img.size(3), img.size(2))//16
     boxes = expand_box(boxes, expand = background, thres_len= (min_len, max_len), x_size = img.size(3), y_size = img.size(2), prev_out=prev_out)
-    boxes= torch.cat([torch.min(boxes[...,:2], dim=0)[0], torch.max(boxes[...,2:], dim=0)[0]],dim=0)
+    canvas= torch.cat([torch.min(boxes[...,:2], dim=0)[0], torch.max(boxes[...,2:], dim=0)[0]],dim=0)
 
-    boxes[0].clamp_(min=0, max=img.size(3))
-    boxes[1].clamp_(min=0, max=img.size(2))
-    boxes[2].clamp_(min=0, max=img.size(3))
-    boxes[3].clamp_(min=0, max=img.size(2))
-    boxes = boxes.type(torch.cuda.LongTensor)
+    canvas[0].clamp_(min=0, max=img.size(3))
+    canvas[1].clamp_(min=0, max=img.size(2))
+    canvas[2].clamp_(min=0, max=img.size(3))
+    canvas[3].clamp_(min=0, max=img.size(2))
+    canvas = canvas.type(torch.cuda.LongTensor)
     
     new_input = img[:,:,boxes[1]:boxes[3],boxes[0]:boxes[2]]
 
-    return new_input, boxes.unsqueeze(0), None , groups
+    return new_input, canvas.unsqueeze(0), None , groups
 
 def patch_construction(img, boxes, prev_out=None, background=0.3):
+    '''     
+    <Description>
+    This method is a patch construction.
+    
+    <input> 
+    img : image
+    boxes : bounding boxes
+    prev_out : previous bounding boxes
+    background : d% background
+    
+    <output>
+    new_box : patches
+    groups : groups of each contains bounding bax in the patches
+    '''    
+    
+    
     # Sort by width ratio
     for_sort_labels = boxes.clone()
     min_len, max_len = max(img.size(3), img.size(2))//33, max(img.size(3), img.size(2))//16
@@ -94,6 +130,24 @@ def patch_construction(img, boxes, prev_out=None, background=0.3):
 import cv2
 #ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 def canvas(img, boxes, where_old_image=None,where_new_image=None, prev_out=None, background = 0.3):
+    '''     
+    <Description>
+    This method is forming a DynaPP canvas. 
+    
+    <input> 
+    img : image
+    boxes : bounding boxes
+    where_old_image : patch locations in the image
+    where_new_image : patch locations in the canvas
+    prev_out : previous bounding boxes
+    background : d% background
+    
+    <output>
+    packed frame. 
+    patch locations in the image, 
+    patch locations in the canvas, 
+    groups of each contains bounding bax in the patches
+    '''    
     
     if where_old_image==None:
         if len(boxes)==1:
@@ -273,9 +327,21 @@ def canvas(img, boxes, where_old_image=None,where_new_image=None, prev_out=None,
         return img9, where_old_image, where_new_image, groups_groups
 
 
-
-
 def expand_box(boxes, expand , thres_len, x_size, y_size, prev_out):
+    '''     
+    <Description>
+    This method appends background to ROIs/bounding boxes:
+    
+    <input> 
+    boxes : bounding boxes
+    expand : d% background
+    thres_len : [m%, o%]
+    x_size, y_size : image width, height
+    prev_out : previous bounding boxes
+    
+    <output>
+    boxes: expanded ROIs
+    '''    
     edge_thres = max(x_size,y_size)//100
     length_x = (boxes[:,2:3] - boxes[:,0:1])*expand/2
     length_y =  (boxes[:,3:4] - boxes[:,1:2])*expand/2
@@ -297,65 +363,3 @@ def expand_box(boxes, expand , thres_len, x_size, y_size, prev_out):
     length_y = torch.clamp(length_y, min=thres_len[0])
     boxes[:,0:1],boxes[:,1:2],boxes[:,2:3],boxes[:,3:4] = boxes[:,0:1]-length_x,boxes[:,1:2]-length_y,boxes[:,2:3]+length_x,boxes[:,3:4]+length_y
     return boxes
-
-
-def check_intersect(boxA, boxB):
-    ''' 두개의 box가 서로 교집합을 가지는지 check한다.
-    args :
-        boxA : boxA 좌표 [xmin,ymin,xmax,ymax 순]
-        boxB : boxB 좌표
-    '''
-    xA = max(float(boxA[0].item()), float(boxB[0].item()))
-    yA = max(float(boxA[1].item()), float(boxB[1].item()))
-    xB = min(float(boxA[2].item()), float(boxB[2].item()))
-    yB = min(float(boxA[3].item()), float(boxB[3].item()))
-    interArea = max(0, xB - xA) * max(0, yB - yA)
-    if interArea > 0:
-        return True
-    else:
-        return False
-
-
-def make_newboxes(boxes):
-    box_num = len(boxes)
-    while True:
-        groups = {}
-        for i in range(0,box_num):
-            new = True
-            for key, value in groups.items():
-                if i in value:
-                    new = False
-                    save_key = key
-            if new:
-                save_key = i
-                groups[i] = [i]
-                
-            for j in range(i+1, box_num):
-                if check_intersect(boxes[i], boxes[j]):
-                    groups[save_key].append(j)
-
-        # find enclosing bounding box around the union bounding boxes in each connected component
-        new_bboxes = []
-        for idxs in groups.values():
-            idxs = list(set(idxs))
-            xmin = torch.min(boxes[idxs,0])
-            xmax = torch.max(boxes[idxs,2])
-            ymin = torch.min(boxes[idxs,1])
-            ymax = torch.max(boxes[idxs,3])
-            enclosing_bbox = torch.LongTensor([xmin, ymin, xmax, ymax]).cuda()
-            new_bboxes.append(enclosing_bbox)
-        new_bboxes = torch.vstack(new_bboxes)
-        # check new bboxes intersect
-        intersect = False
-        box_num = len(new_bboxes)
-        for i in range(0, box_num):
-            for j in range(i+1, box_num):
-                if check_intersect(new_bboxes[i], new_bboxes[j]):
-                    intersect = True
-
-        # if there are intersecting boxes in new_bboxes, build enclosing box again
-        if intersect:
-            boxes = new_bboxes
-        else:
-            break
-    return new_bboxes

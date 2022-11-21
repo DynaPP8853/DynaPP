@@ -112,7 +112,7 @@ def test(data,
 
     seen = 0
     confusion_matrix = ConfusionMatrix(nc=nc)
-    names = {k: v for k, v in enumerate(data['names'])}
+    names = data['names']
     coco91class = coco80_to_coco91_class()
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Labels', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
     p, r, f1, mp, mr, map50, map, t0, t1,t2,t3, t_pack, pack_t1, pack_t2 = 0., 0., 0., 0., 0., 0., 0., 0., 0. ,0., 0., 0., 0., 0.

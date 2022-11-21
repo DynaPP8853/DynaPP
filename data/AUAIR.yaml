@@ -7,7 +7,6 @@ names:
 - Bicycle
 - Bus
 nc: 7
-patch: ../data/datasets/AUAIR/videos
 path: ../data/datasets/AUAIR/videos
 test: VisDrone2019-DET-test-dev/images
 train: VisDrone2019-DET-train/images
