@@ -1,5 +1,9 @@
 # DynaPP
 
+## Please read 'guideline.pdf'
+
+---
+
 ## Please download weight files below
 
 #### (Put the files in 'weights' folder)
