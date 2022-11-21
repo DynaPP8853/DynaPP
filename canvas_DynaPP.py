@@ -36,17 +36,17 @@ def enclosing_canvas(img, boxes, where_old_image=None, where_new_image=None, pre
         return img[:,:,x:y, z:w], where_old_image, None, groups
     min_len, max_len = max(img.size(3), img.size(2))//33, max(img.size(3), img.size(2))//16
     boxes = expand_box(boxes, expand = background, thres_len= (min_len, max_len), x_size = img.size(3), y_size = img.size(2), prev_out=prev_out)
-    canvas= torch.cat([torch.min(boxes[...,:2], dim=0)[0], torch.max(boxes[...,2:], dim=0)[0]],dim=0)
+    boxes= torch.cat([torch.min(boxes[...,:2], dim=0)[0], torch.max(boxes[...,2:], dim=0)[0]],dim=0)
 
-    canvas[0].clamp_(min=0, max=img.size(3))
-    canvas[1].clamp_(min=0, max=img.size(2))
-    canvas[2].clamp_(min=0, max=img.size(3))
-    canvas[3].clamp_(min=0, max=img.size(2))
-    canvas = canvas.type(torch.cuda.LongTensor)
+    boxes[0].clamp_(min=0, max=img.size(3))
+    boxes[1].clamp_(min=0, max=img.size(2))
+    boxes[2].clamp_(min=0, max=img.size(3))
+    boxes[3].clamp_(min=0, max=img.size(2))
+    boxes = boxes.type(torch.cuda.LongTensor)
     
     new_input = img[:,:,boxes[1]:boxes[3],boxes[0]:boxes[2]]
 
-    return new_input, canvas.unsqueeze(0), None , groups
+    return new_input, boxes.unsqueeze(0), None , groups
 
 def patch_construction(img, boxes, prev_out=None, background=0.3):
     '''     
