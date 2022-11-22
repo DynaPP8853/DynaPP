@@ -53,7 +53,7 @@ https://drive.google.com/file/d/1w_K7uV4C_VxM5NryFpJFQC8OtSZbPIde/view?usp=share
 ## Hardware test
 ### We provide tested results on Jetson Nanon and TX2 : 'Time measured by hardwares.xlsx'
 
-![Nano](https://user-images.githubusercontent.com/118588373/203301446-e1ed7d64-06ab-4df6-80bc-f2b93f35e6fa.png)
+![image](https://user-images.githubusercontent.com/118588373/203310683-7ea2fe02-b5e8-4d04-96ab-f1a6b3f26947.png)
 ![not_square_Nano](https://user-images.githubusercontent.com/118588373/203301518-3fcd6475-a6cc-402f-a62b-2725244eea48.png)
 
 
