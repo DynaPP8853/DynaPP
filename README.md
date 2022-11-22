@@ -1,10 +1,23 @@
 # DynaPP
 
+Our code is based on https://github.com/ultralytics/yolov5.
+
+## Please read 'guideline.pdf'
+
+---
+
+Common options ("val.py") (will be updated)
+
+"--": 
+
+
+---
+
 ## Prepare hardware
 
 Our code is based on PyTorch.
 
-Installing PyTorch and Cuda in jetson edge devices is different from general installation.
+Installing PyTorch in jetson edge devices is different from general installation.
 
 Jetson Nano : https://qengineering.eu/install-pytorch-on-jetson-nano.html
 
@@ -15,8 +28,6 @@ Wheel installers : https://forums.developer.nvidia.com/t/pytorch-for-jetson/7204
 + If error occurs as : usr/lib/aarch64-linux-gnu/libgomp.so.1: cannot allocate memory in static tls bloc
 
 Write this before access jupyter notebook : export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libgomp.so.1
-
-## Please read 'guideline.pdf'
 
 ---
 
@@ -32,6 +43,8 @@ https://drive.google.com/file/d/19zIMTZzF9tqOnpDBxMkoKz6u7S3-x7CW/view?usp=share
 
 ## Please download datasets below 
 ### (Put the files in directory you want, and modify the code inside 'Run.ipynb'
+
+These dataset annotations have been converted to yolo format.
 
 ##### AUAIR
 
