@@ -34,6 +34,7 @@ https://drive.google.com/file/d/19zIMTZzF9tqOnpDBxMkoKz6u7S3-x7CW/view?usp=share
 
 ## Please download datasets below 
 ### (Put the files in directory you want, and modify the code inside 'Run.ipynb'
+#### These dataset annotations have been converted to yolo format.
 
 ##### AUAIR
 
