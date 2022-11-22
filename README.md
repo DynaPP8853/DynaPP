@@ -1,5 +1,7 @@
 # DynaPP
 
+usr/lib/aarch64-linux-gnu/libgomp.so.1: cannot allocate memory in static tls bloc
+
 export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libgomp.so.1
 
 ## Please read 'guideline.pdf'
