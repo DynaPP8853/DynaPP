@@ -7,13 +7,19 @@ Our code is based on https://github.com/ultralytics/yolov5.
 ---
 Inside 'Run.ipynb'
 
-Common options ("val.py") (will be updated)
+Common options ("val.py") (will be updated more)
 
 "--pack": DynaPP acceleration
 
 "--duration": key frame duration length
 
 "--background": background amount (d%)
+
+"--data": *.data path
+
+"--weights": model.pt path(s)
+
+"--dataset_name": dataset name
 
 
 ---
