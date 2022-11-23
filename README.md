@@ -5,10 +5,15 @@ Our code is based on https://github.com/ultralytics/yolov5.
 ## Please read 'guideline.pdf'
 
 ---
+Inside 'Run.ipynb'
 
 Common options ("val.py") (will be updated)
 
-"--": 
+"--pack": DynaPP acceleration
+
+"--duration": key frame duration length
+
+"--background": background amount (d%)
 
 
 ---
